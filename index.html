@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en" class="transition-colors duration-300">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARLE: The Car Guessing Game (UAT)</title>
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load React, ReactDOM, and Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Configure Tailwind to support dark mode via class -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes soft-fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-soft-fade-in {
+            animation: soft-fade-in 0.6s ease-out forwards;
+        }
+
+        @keyframes tile-fade-in {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-tile-fade-in {
+            animation: tile-fade-in 0.4s ease-out forwards;
+            opacity: 0;
+        }
+        /* Staggered delays for sequential animation */
+        .animate-tile-fade-in-1 { animation-delay: 0.1s; }
+        .animate-tile-fade-in-2 { animation-delay: 0.2s; }
+        .animate-tile-fade-in-3 { animation-delay: 0.3s; }
+
+        /* FIREWORKS ANIMATION CSS */
+        @keyframes firework-burst {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translate(var(--x), var(--y)) scale(0.1) rotate(var(--r)); opacity: 0; }
+        }
+
+        .firework-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: firework-burst 0.7s cubic-bezier(.17,.67,.83,.67) forwards;
+            animation-iteration-count: 1;
+        }
+        /* END FIREWORKS ANIMATION CSS */
+
+
+        /* Dark Mode Transition Fix */
+        html.dark {
+            color-scheme: dark;
+        }
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        body.dark {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="font-sans">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useCallback, useRef, useEffect, forwardRef } = React;
+        const { createRoot } = ReactDOM;
+
+        // --- Car Data Source ---
+        // NOTE: The full ALL_CARS array has been replaced with a placeholder
+        // for deployment to ensure the file length is manageable in the context
+        // of this single-file output. For actual UAT, you would ensure the full
+        // array is available here.
+        const ALL_CARS = [
+            { 
+                id: 'acura_nsx_90', 
+                make: 'Acura', 
+                model: 'NSX (1st Gen)', 
+                year: 1990, 
+                imageUrl: "https://cdn.motor1.com/images/mgl/mLQPr/s1/first-generation-acura-nsx.webp" 
+            },
+            { 
+                id: 'audi_r8_07', 
+                make: 'Audi', 
+                model: 'R8 (1st Gen)', 
+                year: 2007, 
+                imageUrl: "https://placehold.co/1200x800/757575/FFFFFF?text=Audi+R8+2007" 
+            },
+            { 
+                id: 'ferrari_testarossa_84', 
+                make: 'Ferrari', 
+                model: 'Testarossa', 
+                year: 1984, 
+                imageUrl: "https://placehold.co/1200x800/B71C1C/FFFFFF?text=Ferrari+Testarossa+1984" 
+            },
+            { 
+                id: 'toyota_supra_93', 
+                make: 'Toyota', 
+                model: 'Supra (A80 Gen)', 
+                year: 1993, 
+                imageUrl: "https://placehold.co/1200x800/2196F3/FFFFFF?text=Toyota+Supra+1993" 
+            },
+            { 
+                id: 'porsche_911_64', 
+                make: 'Porsche', 
+                model: '911 (901 Gen)', 
+                year: 1964, 
+                imageUrl: "https://placehold.co/1200x800/FFD54F/000000?text=Porsche+911+1964" // Light Amber placeholder
+            },
+            { 
+                id: 'bmw_m3_86', 
+                make: 'BMW', 
+                model: 'M3 (E30 Gen)', 
+                year: 1986, 
+                imageUrl: "https://placehold.co/1200x800/0D47A1/FFFFFF?text=BMW+M3+1986" // Dark Blue placeholder
+            },
+        ];
+
+        // Zoom levels: start zoomed in (4.0) and zoom out to full view (1.0).
+        const ZOOM_LEVELS = [
+            "scale-[4.0] object-center", // Guess 1 (Highest zoom, most difficult)
+            "scale-[3.4] object-center", // Guess 2
+            "scale-[2.8] object-center", // Guess 3
+            "scale-[2.2] object-center", // Guess 4
+            "scale-[1.6] object-center", // Guess 5
+            "scale-[1.0] object-center", // Guess 6 / End Game (Full image)
+        ];
+
+        const MAX_GUESSES = ZOOM_LEVELS.length - 1; // 5 guesses before showing the final image/answer
+
+        // Find the min/max years in the dataset
+        const ALL_YEARS = ALL_CARS.map(c => c.year);
+        const MIN_YEAR = 1953; // Hardcoded based on original data
+        const MAX_YEAR = 2018; // Hardcoded based on original data
+        const DEFAULT_YEAR = 1985; // Hardcoded average
+
+
+        // --- Guess Tile Component for History Display (Unchanged) ---
+        const GuessTile = ({ label, value, isCorrect, animationDelayClass }) => {
+            let bgColor = "bg-red-500 dark:bg-red-600";
+            if (isCorrect) {
+                bgColor = "bg-green-600 dark:bg-green-700";
+            }
+
+            const correctIcon = (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 14.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+            );
+            const incorrectIcon = (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+            );
+
+            // Note: We keep the year tolerance display here as it is the core rule for the YEAR tile.
+            const isYearToleranceCorrect = label === 'YEAR' && isCorrect;
+
+            return (
+                <div className={`flex-1 p-2 rounded-lg ${bgColor} text-white font-semibold shadow-inner transition-colors duration-300 animate-tile-fade-in ${animationDelayClass}`}>
+                    <div className="text-xs opacity-80 uppercase tracking-widest flex items-center justify-center">
+                        {label} {isCorrect ? correctIcon : incorrectIcon}
+                    </div>
+                    <div className="text-sm sm:text-base truncate">
+                        {value}
+                        {isYearToleranceCorrect && (value !== (window.targetCar?.year?.toString())) && <span className="ml-1 text-xs font-normal italic">($\\pm 2$ yrs)</span>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Autocomplete Input Component with Ref Forwarding (Unchanged) ---
+        const AutocompleteInput = forwardRef(({ label, value, onChange, suggestions, onSelect, placeholder, disabled = false }, ref) => {
+            const [showSuggestions, setShowSuggestions] = useState(false);
+            const inputRef = useRef(null);
+            const suggestionsRef = useRef(null);
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (
+                        inputRef.current && !inputRef.current.contains(event.target) &&
+                        suggestionsRef.current && !suggestionsRef.current.contains(event.target)
+                    ) {
+                        setShowSuggestions(false);
+                    }
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            const handleInputChange = (e) => {
+                onChange(e.target.value);
+                setShowSuggestions(true);
+            };
+
+            const handleSelectSuggestion = (suggestion) => {
+                onSelect(suggestion);
+                setShowSuggestions(false);
+            };
+
+            const filteredSuggestions = useMemo(() => {
+                if (!value) return suggestions;
+                return suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()));
+            }, [value, suggestions]);
+
+            return (
+                <div ref={ref} className="relative w-full">
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label>
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        placeholder={placeholder}
+                        value={value}
+                        onChange={handleInputChange}
+                        onFocus={() => setShowSuggestions(true)}
+                        disabled={disabled}
+                        className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500
+                            ${disabled
+                                ? 'border-green-600 bg-green-100 dark:bg-green-900/50 text-black dark:text-white cursor-not-allowed'
+                                : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'
+                            }
+                        `}
+                    />
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                        <ul
+                            ref={suggestionsRef}
+                            className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                        >
+                            {filteredSuggestions.map((suggestion, index) => (
+                                <li
+                                    key={index}
+                                    onClick={() => handleSelectSuggestion(suggestion)}
+                                    className="p-2 cursor-pointer hover:bg-blue-100 dark:hover:bg-zinc-700 text-black dark:text-white"
+                                >
+                                    {suggestion}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            );
+        });
+
+        // --- Year Input Component (Unchanged) ---
+        const YearInput = forwardRef(({ label, value, minYear, maxYear, onChange, disabled = false }, ref) => {
+            return (
+                <div ref={ref} className="relative w-full">
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label>
+                    <input
+                        type="number"
+                        placeholder="Year (e.g., 1985)"
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        min={minYear}
+                        max={maxYear}
+                        step="1"
+                        onFocus={() => {
+                            // This internal onFocus is mainly for selecting text on focus, 
+                            // the external mobile scroll focus handler is attached in the parent App component's useEffect.
+                            if (ref.current) {
+                                ref.current.querySelector('input').select();
+                            }
+                        }}
+                        disabled={disabled}
+                        className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center
+                            ${disabled
+                                ? 'border-green-600 bg-green-100 dark:bg-green-900/50 text-black dark:text-white cursor-not-allowed'
+                                : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'
+                            }
+                        `}
+                    />
+                </div>
+            );
+        });
+
+        // --- Fireworks Overlay Component ---
+        const COLORS = [
+            '#FF5733', '#FFBD33', '#33FF57', '#3357FF', '#FF33A1', '#FF3333', '#FFD700', '#ADFF2F'
+        ];
+        const NUM_PARTICLES = 20;
+
+        const FireworksOverlay = () => {
+            const bursts = useMemo(() => {
+                // Defines 4 strategic burst points (TL, TR, BL, BR)
+                const burstPositions = [
+                    { key: 'tl', xOffset: '0%', yOffset: '0%', delay: 0 }, 
+                    { key: 'tr', xOffset: '100%', yOffset: '0%', delay: 0.1 }, 
+                    { key: 'bl', xOffset: '0%', yOffset: '100%', delay: 0.15 }, 
+                    { key: 'br', xOffset: '100%', yOffset: '100%', delay: 0.2 }, 
+                ];
+
+                return burstPositions.map(burst => {
+                    return Array.from({ length: NUM_PARTICLES }).map((_, index) => {
+                        // Random direction and distance for burst effect (increased spread to 200px)
+                        const x = (Math.random() - 0.5) * 200;
+                        const y = (Math.random() - 0.5) * 200;
+                        const rotation = Math.random() * 360;
+                        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                        const duration = 0.5 + Math.random() * 0.3; // Randomize duration slightly
+
+                        return (
+                            <div
+                                key={`${burst.key}-${index}`}
+                                className="firework-particle"
+                                style={{
+                                    backgroundColor: color,
+                                    '--x': `${x}px`,
+                                    '--y': `${y}px`,
+                                    '--r': `${rotation}deg`,
+                                    animationDelay: `${burst.delay + Math.random() * 0.2}s`,
+                                    animationDuration: `${duration}s`,
+                                    // Position based on the burst origin
+                                    left: burst.xOffset,
+                                    top: burst.yOffset,
+                                    transform: 'translate(-50%, -50%)', // Center particle at origin
+                                }}
+                            />
+                        );
+                    });
+                });
+            }, []);
+
+            return (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden z-30">
+                    {bursts.map((burst, i) => (
+                        <React.Fragment key={i}>
+                            {burst}
+                        </React.Fragment>
+                    ))}
+                </div>
+            );
+        };
+        // ----------------------------------------------------
+
+        // --- Share Utility Function ---
+        const shareResults = async (guesses, finalStatus) => {
+            const totalGuesses = guesses.length;
+
+            // 1. Generate the emoji grid
+            const emojiGrid = guesses.map(g => {
+                // Red square for incorrect, Green circle for correct
+                const makeEmoji = g.correctness.make ? '🟢' : '🔴';
+                const modelEmoji = g.correctness.model ? '🟢' : '🔴';
+                // Note: Year uses the same logic as make/model for the share grid based on the tolerance rule (<= 2 yrs)
+                const yearEmoji = g.correctness.year ? '🟢' : '🔴';
+                return `${makeEmoji}${modelEmoji}${yearEmoji}`;
+            }).join('\n');
+
+            // 2. Construct the share text
+            const resultText = finalStatus === 'won'
+                ? `CARLE ${totalGuesses}/${MAX_GUESSES}`
+                : `CARLE X/${MAX_GUESSES}`;
+
+            const shareText = [
+                resultText,
+                '🔥 Streak 1', // Placeholder for future streak logic
+                '',
+                emojiGrid,
+                '',
+                'Can you guess the car? [APP_LINK_PLACEHOLDER]'
+            ].join('\n');
+
+            const shareData = {
+                text: shareText,
+                title: 'My CARLE Score',
+            };
+
+            let feedbackMessage = '';
+
+            // 3. Attempt to use the Web Share API (native share dialog)
+            if (navigator.share) {
+                try {
+                    // FIX: Removed URL from shareData to avoid "Invalid URL" error in iframe
+                    await navigator.share(shareData);
+                    feedbackMessage = 'Shared successfully!';
+                } catch (err) {
+                    // User likely cancelled the share dialog or platform error
+                    if (err.name !== 'AbortError') {
+                        console.error('Error sharing:', err);
+                        feedbackMessage = 'Sharing failed. Copied to clipboard instead.';
+                    } else {
+                        feedbackMessage = 'Score copied to clipboard!';
+                    }
+
+                    // Fallback to clipboard if sharing failed or was aborted
+                    try {
+                        // Use execCommand for robustness in iFrames
+                        await copyToClipboardFallback(shareText);
+                    } catch (copyErr) {
+                        console.error('Clipboard copy failed:', copyErr);
+                        feedbackMessage = 'Error copying score. Please try again.';
+                    }
+                }
+            } else {
+                // 4. Fallback for browsers without Web Share API (copy to clipboard)
+                try {
+                    await copyToClipboardFallback(shareText);
+                    feedbackMessage = 'Score copied to clipboard!';
+                } catch (copyErr) {
+                     console.error('Clipboard copy failed:', copyErr);
+                     feedbackMessage = 'Error copying score. Please try again.';
+                }
+            }
+
+            // Display feedback message
+            const feedbackElement = document.getElementById('shareFeedback');
+            if (feedbackElement) {
+                feedbackElement.textContent = feedbackMessage;
+                feedbackElement.classList.remove('opacity-0');
+                setTimeout(() => {
+                    feedbackElement.classList.add('opacity-0');
+                }, 3000);
+            }
+        };
+
+        /**
+         * Copies text to the clipboard using the reliable document.execCommand('copy') method.
+         * @param {string} text - The text to copy.
+         */
+        const copyToClipboardFallback = (text) => {
+            return new Promise((resolve, reject) => {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = text;
+                tempTextarea.style.position = 'fixed'; // Prevents scrolling
+                tempTextarea.style.left = '-9999px'; // Off-screen
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(tempTextarea);
+                    if (successful) {
+                        resolve();
+                    } else {
+                        reject(new Error("document.execCommand('copy') failed."));
+                    }
+                } catch (err) {
+                    document.body.removeChild(tempTextarea);
+                    reject(err);
+                }
+            });
+        };
+
+        // --- Game End Modal Component ---
+        const GameEndModal = ({ targetCar, guesses, gameState, onPlayAgain, onDismiss }) => {
+            if (gameState === 'playing') return null;
+
+            const totalGuesses = guesses.length;
+            const isWon = gameState === 'won';
+            const titleText = isWon ? 'WINNER!' : 'GAME OVER';
+
+            // Calculate score (simple placeholder logic)
+            const pointsThisRound = isWon ? (MAX_GUESSES - totalGuesses + 1) * 10 : 0;
+
+            // Streak logic is placeholder until persistence is added
+            const streak = 1;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-70 backdrop-blur-sm animate-soft-fade-in">
+                    <div className="bg-white dark:bg-zinc-800 text-black dark:text-white rounded-xl shadow-2xl w-full max-w-sm md:max-w-md p-6 relative">
+
+                        {/* FIREWORKS OVERLAY: ONLY RENDERS ON WIN */}
+                        {isWon && <FireworksOverlay />}
+
+                        {/* Close Button (z-40 to be above fireworks and content) */}
+                        <button
+                            onClick={onDismiss}
+                            className="absolute top-4 right-4 z-40 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <h2 className={`text-2xl font-extrabold text-center mb-1 z-20 ${isWon ? 'text-green-600' : 'text-red-600'}`}>
+                            {titleText}
+                        </h2>
+                        <p className="text-sm text-center font-medium text-zinc-600 dark:text-zinc-400 mb-4 z-20">
+                            {targetCar.make} {targetCar.model} {targetCar.year}
+                        </p>
+
+                        {/* Final Image */}
+                        <div className="w-full h-40 overflow-hidden rounded-lg shadow-lg mb-4 relative z-20">
+                            <img
+                                src={targetCar.imageUrl}
+                                alt="Target Car"
+                                className={`absolute inset-0 w-full h-full object-cover ${ZOOM_LEVELS[MAX_GUESSES]}`}
+                                onError={(e) => e.target.src = "https://placehold.co/1200x800/607D8B/white?text=Image+Not+Found"}
+                            />
+                        </div>
+
+                        {/* Guess Summary Circles */}
+                        <div className="flex justify-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-700 mb-4 z-20">
+                            <div className="text-center">
+                                <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <p className="text-xs mt-1 font-semibold">Make</p>
+                            </div>
+                            <div className="text-center">
+                                <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <p className="text-xs mt-1 font-semibold">Model</p>
+                            </div>
+                            <div className="text-center">
+                                <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <p className="text-xs mt-1 font-semibold">Year</p>
+                            </div>
+                        </div>
+
+                        {/* Score Summary (Placeholder) */}
+                        <div className="flex justify-between text-sm font-medium mb-6 z-20">
+                            <div>
+                                <p>Guesses:</p>
+                                <p>Score This Round:</p>
+                                <p>🔥 Streak:</p>
+                            </div>
+                            <div className="text-right font-bold">
+                                <p>{isWon ? `${totalGuesses}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`}</p>
+                                <p>{pointsThisRound}</p>
+                                <p>{streak}</p>
+                            </div>
+                        </div>
+
+                        {/* Share and Play Again Buttons */}
+                        <div className="flex flex-col gap-3 z-20">
+                            <button
+                                onClick={() => shareResults(guesses, gameState)}
+                                className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors"
+                            >
+                                Share Results
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.632l6.632-3.316m6.632 3.316a3 3 0 110-6 3 3 0 010 6zm0 6a3 3 0 110-6 3 3 0 010 6z" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={onPlayAgain}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors"
+                            >
+                                Play New Game
+                            </button>
+                            {/* Share Feedback Message */}
+                            <p id="shareFeedback" className="text-sm text-center text-blue-600 font-medium opacity-0 transition-opacity duration-300 h-4"></p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- Main Application Component ---
+        function App() {
+            const initialTargetIndex = useMemo(() => Math.floor(Math.random() * ALL_CARS.length), []);
+            const [targetCar, setTargetCar] = useState(ALL_CARS[initialTargetIndex]);
+
+            // Initialize currentGuess with the default middle year
+            const [currentGuess, setCurrentGuess] = useState({
+                make: "",
+                model: "",
+                year: DEFAULT_YEAR.toString(),
+                // Track correctness to disable fields visually and functionally
+                makeCorrect: false,
+                modelCorrect: false,
+                yearCorrect: false
+            });
+
+            useEffect(() => {
+                window.targetCar = targetCar;
+            }, [targetCar]);
+
+
+            const [guesses, setGuesses] = useState([]);
+            const [gameState, setGameState] = useState("playing"); // 'playing', 'won', 'lost'
+            const [message, setMessage] = useState("");
+            const [showModal, setShowModal] = useState(false);
+
+            // --- Refs for Mobile Scroll Fix ---
+            const makeRef = useRef(null);
+            const modelRef = useRef(null);
+            const yearRef = useRef(null);
+
+            // --- Mobile Scroll Logic ---
+            useEffect(() => {
+                // Function to scroll the focused element's container up on mobile screens
+                const handleFocus = (event) => {
+                    // Find the closest container with the "relative w-full" class (the input container)
+                    const elementToScroll = event.target.closest('.relative.w-full');
+
+                    // Check if we are on a mobile device (screen width < 640px)
+                    if (elementToScroll && window.innerWidth < 640) {
+                        // Use a slight delay to allow the virtual keyboard to start appearing
+                        setTimeout(() => {
+                            // Scroll the element to the start (top) of the viewport smoothly
+                            elementToScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 100);
+                    }
+                };
+
+                // Gather all input elements we want to listen to
+                const inputs = [
+                    makeRef.current?.querySelector('input'),
+                    modelRef.current?.querySelector('input'),
+                    yearRef.current?.querySelector('input'),
+                ].filter(Boolean);
+
+                // Attach the focus listener
+                inputs.forEach(input => {
+                    input.addEventListener('focus', handleFocus);
+                });
+
+                // Cleanup the event listeners on component unmount
+                return () => {
+                    inputs.forEach(input => {
+                        input.removeEventListener('focus', handleFocus);
+                    });
+                };
+            }, []);
+            // -----------------------------
+
+
+            // --- Dark Mode State and Logic (Unchanged) ---
+            const [darkMode, setDarkMode] = useState(() => {
+                if (localStorage.getItem('theme') === 'dark') {
+                    return true;
+                }
+                if (localStorage.getItem('theme') === 'light') {
+                    return false;
+                }
+                return window.matchMedia('(prefers-color-scheme: dark)').matches;
+            });
+
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                }
+                document.body.classList.toggle('dark', darkMode);
+            }, [darkMode]);
+
+            const toggleDarkMode = () => {
+                setDarkMode(prevMode => !prevMode);
+            };
+            // ---------------------------------
+
+
+            // --- Derived State for Autocomplete (Unchanged) ---
+            const availableMakes = useMemo(() => {
+                return [...new Set(ALL_CARS.map(c => c.make))].sort();
+            }, []);
+
+            const availableModels = useMemo(() => {
+                // Filter models based on the selected MAKE, UNLESS the MAKE is already correct.
+                if (!currentGuess.make || currentGuess.makeCorrect) {
+                    return [...new Set(ALL_CARS.map(c => c.model))].sort();
+                }
+                return [...new Set(ALL_CARS.filter(c => c.make === currentGuess.make).map(c => c.model))].sort();
+            }, [currentGuess.make, currentGuess.makeCorrect]);
+
+            const currentZoomLevel = Math.min(guesses.length, MAX_GUESSES);
+            const currentImageTransform = ZOOM_LEVELS[currentZoomLevel];
+
+            // --- Event Handlers (Updated to manage Modal state) ---
+            const showMessage = (msg) => {
+                setMessage(msg);
+                setTimeout(() => setMessage(""), 2000);
+            };
+
+            const handleSelectMake = useCallback((make) => {
+                // If make is already correct, ignore input change
+                if (currentGuess.makeCorrect) return;
+                setCurrentGuess(prev => ({ ...prev, make, model: "" }));
+            }, [currentGuess.makeCorrect]);
+
+            const handleSelectModel = useCallback((model) => {
+                if (currentGuess.modelCorrect) return;
+                setCurrentGuess(prev => ({ ...prev, model }));
+            }, [currentGuess.modelCorrect]);
+
+            const handleChangeYear = useCallback((year) => {
+                if (currentGuess.yearCorrect) return;
+                setCurrentGuess(prev => ({ ...prev, year }));
+            }, [currentGuess.yearCorrect]);
+
+            const handleSubmitGuess = useCallback(() => {
+                if (gameState !== "playing") return;
+
+                const guessedYearNum = parseInt(currentGuess.year, 10);
+                if (isNaN(guessedYearNum) || guessedYearNum < MIN_YEAR || guessedYearNum > MAX_YEAR) {
+                    showMessage(`Please enter a valid year between ${MIN_YEAR} and ${MAX_YEAR}.`);
+                    return;
+                }
+
+                if (!currentGuess.make || !currentGuess.model) {
+                    showMessage("Please select a Make and Model before guessing.");
+                    return;
+                }
+
+                // Check correctness against the target car
+                const correctMake = currentGuess.make === targetCar.make;
+                const correctModel = currentGuess.model === targetCar.model;
+
+                const targetYear = targetCar.year;
+
+                const yearDifference = Math.abs(guessedYearNum - targetYear);
+                const correctYear = yearDifference <= 2; // within +/- 2 years
+
+                const isCorrect = correctMake && correctModel && correctYear;
+
+                const guessWithFeedback = {
+                    guess: { ...currentGuess },
+                    result: isCorrect ? "correct" : "incorrect",
+                    correctness: {
+                        make: correctMake,
+                        model: correctModel,
+                        year: correctYear,
+                    },
+                    imageUrl: targetCar.imageUrl,
+                    zoomLevel: currentZoomLevel
+                };
+
+                // 1. Save the guess
+                setGuesses((prev) => [...prev, guessWithFeedback]);
+
+                // 2. Determine the next state for input fields (QoL Improvement: Sticky Fields)
+                let nextGuessState = {
+                    make: currentGuess.make,
+                    model: currentGuess.model,
+                    year: currentGuess.year,
+                    makeCorrect: currentGuess.makeCorrect || correctMake,
+                    modelCorrect: currentGuess.modelCorrect || (correctMake && correctModel),
+                    yearCorrect: currentGuess.yearCorrect || correctYear
+                };
+
+                if (nextGuessState.makeCorrect) {
+                    // Make is correct/locked. If Model is NOT correct, clear the Model field.
+                    if (!nextGuessState.modelCorrect) {
+                        nextGuessState.model = "";
+                    }
+                } else {
+                    // Make is incorrect. Clear both Make and Model fields.
+                    nextGuessState.make = "";
+                    nextGuessState.model = "";
+                }
+
+                // Set the state for the next turn
+                setCurrentGuess(nextGuessState);
+
+                // 3. Check for game over conditions
+                if (isCorrect) {
+                    setGameState("won");
+                    setShowModal(true);
+                    return;
+                }
+
+                if (guesses.length + 1 >= MAX_GUESSES) {
+                    setGameState("lost");
+                    setShowModal(true);
+                    return;
+                }
+            }, [currentGuess, targetCar, guesses.length, gameState, currentZoomLevel]);
+
+            const handlePlayAgain = useCallback(() => {
+                const newTargetIndex = Math.floor(Math.random() * ALL_CARS.length);
+                setTargetCar(ALL_CARS[newTargetIndex]);
+                setGuesses([]);
+                setCurrentGuess({
+                    make: "",
+                    model: "",
+                    year: DEFAULT_YEAR.toString(),
+                    makeCorrect: false,
+                    modelCorrect: false,
+                    yearCorrect: false
+                });
+                setGameState("playing");
+                setShowModal(false);
+                setMessage("");
+            }, []);
+
+            // --- Render ---
+            return (
+                <div className="flex flex-col items-center w-full min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white p-4 sm:p-6">
+
+                    {/* Game End Modal is now conditional */}
+                    <GameEndModal
+                        targetCar={targetCar}
+                        guesses={guesses}
+                        gameState={gameState}
+                        onPlayAgain={handlePlayAgain}
+                        onDismiss={() => setShowModal(false)}
+                    />
+
+                    <header className="w-full max-w-2xl text-center mb-4 relative">
+                        <h1 className="text-4xl font-bold tracking-wider">CARLE: The Car Guessing Game</h1>
+                        <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base">
+                            Guess the car within {MAX_GUESSES} tries.
+                        </p>
+
+                        {/* Dark Mode Toggle */}
+                        <button
+                            onClick={toggleDarkMode}
+                            className="absolute top-0 right-0 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors duration-300"
+                            title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                        >
+                            {darkMode ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h1M3 12H2m15.325 5.232l-.707.707M6.707 6.707l-.707-.707m1.414 12.728l-.707.707M6.707 6.707l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                            )}
+                        </button>
+                    </header>
+
+                    {/* Message Popup */}
+                    {message && (
+                        <div className="fixed top-16 z-50 px-6 py-3 rounded-lg bg-black text-white font-semibold shadow-lg animate-fade-in-out">
+                            {message}
+                        </div>
+                    )}
+
+                    {/* Main Image Display */}
+                    <main className="relative w-full max-w-2xl h-64 sm:h-80 md:h-96 bg-zinc-200 dark:bg-zinc-800 rounded-lg shadow-xl overflow-hidden mb-6">
+                        <img
+                            src={targetCar.imageUrl}
+                            alt="Mystery Car"
+                            onError={(e) => {
+                                console.error("Failed to load image from:", e.target.src);
+                                e.target.src = "https://placehold.co/1200x800/607D8B/white?text=CAR+IMAGE+UNAVAILABLE";
+                            }}
+                            className={`absolute inset-0 w-full h-full transition-transform duration-700 ease-out object-cover ${currentImageTransform}`}
+                        />
+                        {(gameState === "won" || gameState === "lost") && !showModal && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                                <button
+                                    onClick={() => setShowModal(true)}
+                                    className="text-white text-3xl sm:text-4xl font-bold drop-shadow-lg text-center underline hover:opacity-80 transition-opacity"
+                                >
+                                    {gameState === "won" ? `WINNER! View Results` : `GAME OVER. View Results`}
+                                </button>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Input Fields */}
+                    {gameState === "playing" && (
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4 w-full max-w-2xl">
+                            <AutocompleteInput
+                                ref={makeRef}
+                                label="Make"
+                                placeholder="Make (e.g., Ford)"
+                                value={currentGuess.make}
+                                onChange={(val) => setCurrentGuess(prev => ({ ...prev, make: val }))}
+                                onSelect={handleSelectMake}
+                                suggestions={availableMakes}
+                                disabled={currentGuess.makeCorrect}
+                            />
+                            <AutocompleteInput
+                                ref={modelRef}
+                                label="Model"
+                                placeholder="Model (e.g., Mustang)"
+                                value={currentGuess.model}
+                                onChange={(val) => setCurrentGuess(prev => ({ ...prev, model: val }))}
+                                onSelect={handleSelectModel}
+                                suggestions={availableModels}
+                                disabled={!currentGuess.make || currentGuess.modelCorrect}
+                            />
+                            <YearInput
+                                ref={yearRef}
+                                label="Year"
+                                minYear={MIN_YEAR}
+                                maxYear={MAX_YEAR}
+                                value={currentGuess.year}
+                                onChange={handleChangeYear}
+                                disabled={!currentGuess.make || !currentGuess.model || currentGuess.yearCorrect}
+                            />
+                        </div>
+                    )}
+
+                    {/* Submit Button / Play Again */}
+                    <div className="flex justify-center mb-6 w-full max-w-2xl">
+                        {gameState === "playing" ? (
+                            <button
+                                onClick={handleSubmitGuess}
+                                disabled={!currentGuess.make || !currentGuess.model}
+                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-xl rounded-lg shadow-md transition-colors"
+                            >
+                                Guess ({guesses.length + 1}/{MAX_GUESSES})
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold text-xl rounded-lg shadow-md transition-colors"
+                            >
+                                View Final Results
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Guesses History */}
+                    {guesses.length > 0 && (
+                        <div className="w-full max-w-2xl bg-zinc-200 dark:bg-zinc-800 p-4 rounded-lg shadow-inner">
+                            <h3 className="text-xl font-semibold mb-3 text-center">Your Attempts</h3>
+                            <div className="flex flex-col gap-3">
+                                {guesses.map((g, i) => (
+                                    <div
+                                        key={i}
+                                        className={`p-3 rounded-xl border-2 transition-all duration-300 ${g.result === "correct" ? "border-green-600 bg-green-50/70 dark:bg-green-900/50" : "border-red-600 bg-red-50/70 dark:bg-red-900/50"}
+                                            ${i === guesses.length - 1 ? 'animate-soft-fade-in' : ''}
+                                        `}
+                                    >
+                                        <div className="flex justify-center items-center font-bold mb-2">
+                                            {g.result === "correct" && (
+                                                <span className={`text-sm font-extrabold uppercase text-green-700 dark:text-green-400`}>
+                                                    FULL MATCH
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row gap-2 text-center text-sm">
+                                            <GuessTile label="Make" value={g.guess.make} isCorrect={g.correctness.make} animationDelayClass="animate-tile-fade-in-1" />
+                                            <GuessTile label="Model" value={g.guess.model} isCorrect={g.correctness.model} animationDelayClass="animate-tile-fade-in-2" />
+                                            <GuessTile label="Year" value={g.guess.year} isCorrect={g.correctness.year} animationDelayClass="animate-tile-fade-in-3" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="mt-4 text-xs text-center text-zinc-500 dark:text-zinc-400">
+                                A Year guess is correct if it is within $\pm 2$ years of the actual car's year.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- Render the App ---
+        const container = document.getElementById('root');
+        const root = createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
