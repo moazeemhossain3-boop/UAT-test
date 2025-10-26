@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CARLE: The Daily Car Guessing Game (UAT)</title>
-    <!-- Load Tailwind CSS from CDN  {/* Corrected comment format */} -->
+    <!-- Load Tailwind CSS from CDN --> {/* Corrected comment format */}
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load React, ReactDOM, and Babel {/* Corrected comment format */} -->
+    <!-- Load React, ReactDOM, and Babel --> {/* Corrected comment format */}
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -91,10 +91,10 @@
         const STREAK_KEY = 'carle_streak';
 
         const ZOOM_LEVELS = [
-            "scale-[3.0] object-center", // Guess 1
-            "scale-[2.6] object-center", // Guess 2
-            "scale-[2.2] object-center", // Guess 3
-            "scale-[1.8] object-center", // Guess 4
+            "scale-[3.4] object-center", // Guess 1
+            "scale-[2.9] object-center", // Guess 2
+            "scale-[2.3] object-center", // Guess 3
+            "scale-[1.9] object-center", // Guess 4
             "scale-[1.6] object-center", // Guess 5
             "scale-[1.0] object-center", // Guess 6 / End Game
         ];
@@ -389,10 +389,29 @@
              const toggleDarkMode = () => { setDarkMode(prevMode => !prevMode); };
 
 
-            // --- Derived State for Autocomplete (Unchanged) ---
-            const availableMakes = useMemo(() => { return [...new Set(allCars.map(c => c.make))].sort(); }, [allCars]);
-            const availableModels = useMemo(() => { if (!currentGuess.make || currentGuess.makeCorrect) { return [...new Set(allCars.map(c => c.model))].sort(); } return [...new Set(allCars.filter(c => c.make === currentGuess.make).map(c => c.model))].sort(); }, [currentGuess.make, currentGuess.makeCorrect, allCars]);
-            const currentZoomLevel = Math.min(guesses.length, MAX_GUESSES); const currentImageTransform = ZOOM_LEVELS[currentZoomLevel];
+            // --- Derived State for Autocomplete ---
+            // Memoized list of unique makes
+            const availableMakes = useMemo(() => {
+                return [...new Set(allCars.map(c => c.make))].sort();
+            }, [allCars]);
+
+            // Memoized list of models, filtered based on current make guess/correctness
+            const availableModels = useMemo(() => {
+                // If a make has been correctly guessed, ONLY show models for that make.
+                if (currentGuess.makeCorrect) {
+                    return [...new Set(allCars.filter(c => c.make === currentGuess.make).map(c => c.model))].sort();
+                }
+                // If no make is entered yet, show all models.
+                if (!currentGuess.make) {
+                     return [...new Set(allCars.map(c => c.model))].sort();
+                }
+                // Otherwise (make is entered but not yet confirmed correct), filter by the entered make.
+                return [...new Set(allCars.filter(c => c.make === currentGuess.make).map(c => c.model))].sort();
+
+            }, [currentGuess.make, currentGuess.makeCorrect, allCars]); // Dependencies
+
+            const currentZoomLevel = Math.min(guesses.length, MAX_GUESSES);
+            const currentImageTransform = ZOOM_LEVELS[currentZoomLevel];
 
             // --- Event Handlers (Updated Streak Logic) ---
             const showMessage = (msg) => { setMessage(msg); setTimeout(() => setMessage(""), 2000); };
@@ -536,5 +555,4 @@
     </script>
 </body>
 </html>
-
 
