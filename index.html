@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {/* Updated Title */}
     <title>CARLE: The Daily Car Guessing Game (UAT)</title>
-    <!-- Load Tailwind CSS from CDN -->
+    {/* Load Tailwind CSS from CDN */}
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load React, ReactDOM, and Babel -->
+    {/* Load React, ReactDOM, and Babel */}
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Configure Tailwind to support dark mode via class -->
+    {/* Configure Tailwind to support dark mode via class */}
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -184,23 +183,27 @@
                 }
 
                 return lines.slice(1).map((line, index) => {
-                    const values = line.split(',').map(field => field.replace(/"/g, '').trim());
-                    if (values.length < rawHeaders.length) { // Check against header length for robustness
-                        console.warn(`Skipping row ${index + 2}: insufficient fields.`);
-                        return null;
+                    // Simpler split, assuming no complex quoted commas within fields
+                    const values = line.split(',').map(field => field.trim());
+                    // Basic validation
+                    if (values.length <= Math.max(headerMap.make, headerMap.model, headerMap.year, headerMap.imageurl)) {
+                       console.warn(`Skipping row ${index + 2}: potentially malformed or missing data.`);
+                       return null;
                     }
                     const year = parseInt(values[headerMap.year], 10);
+                    const imageUrl = values[headerMap.imageurl]?.replace(/^"|"$/g, '') || ""; // Clean quotes just in case
+
                     return {
-                        id: `car-${index}`, 
-                        make: values[headerMap.make] || 'Unknown',
-                        model: values[headerMap.model] || 'Unknown',
+                        id: `car-${index}`,
+                        make: values[headerMap.make]?.replace(/^"|"$/g, '') || 'Unknown',
+                        model: values[headerMap.model]?.replace(/^"|"$/g, '') || 'Unknown',
                         year: year,
-                        imageUrl: values[headerMap.imageurl] || "https://placehold.co/1200x800/607D8B/white?text=CAR+IMG+MISSING",
+                        imageUrl: imageUrl || "https://placehold.co/1200x800/607D8B/white?text=CAR+IMG+MISSING",
                     };
-                }).filter(car => car && !isNaN(car.year));
+                }).filter(car => car && !isNaN(car.year)); // Filter out nulls and invalid years
             } catch (error) {
                 console.error("Failed to fetch or parse car data:", error);
-                throw error;
+                throw error; // Re-throw to be caught by the component
             }
         };
 
@@ -464,8 +467,8 @@
                     )}
 
                     <header className="w-full max-w-2xl text-center mb-4 relative">
-                         {/* Updated title and added streak display */}
-                        <h1 className="text-4xl font-bold tracking-wider">CARLE: The Daily Car Guessing Game</h1>
+                         {/* Responsive Title Size */}
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-wider">CARLE: The Daily Car Guessing Game</h1>
                         {/* Updated Subtitle Text */}
                         <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base"> 
                             Guess today's car within {MAX_GUESSES} tries. 
@@ -516,8 +519,8 @@
                                     </div>
                                 ))}
                             </div>
-                            {/* Updated instruction text */}
-                            <p className="mt-4 text-xs text-center text-zinc-500 dark:text-zinc-400">
+                            {/* Add bottom margin to the instruction text */}
+                            <p className="mt-4 mb-4 text-xs text-center text-zinc-500 dark:text-zinc-400">
                                 Guess within 2 years of the cars release date
                             </p>
                         </div>
