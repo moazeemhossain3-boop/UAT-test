@@ -210,7 +210,7 @@
 
         // --- Guess Tile Component for History Display (Unchanged) ---
         const GuessTile = ({ label, value, isCorrect, animationDelayClass }) => {
-            let bgColor = "bg-red-500 dark:bg-red-600"; if (isCorrect) { bgColor = "bg-green-600 dark:bg-green-700"; }
+            let bgColor = "bg-red-500 dark:bg-red-600"; if (isCorrect) { bgColor = "bg-green-600 dark:bg-green-700"; } // Kept red/green for history tiles for now
             const correctIcon = ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 14.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> );
             const incorrectIcon = ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg> );
             const isYearToleranceCorrect = label === 'YEAR' && isCorrect;
@@ -223,12 +223,14 @@
             useEffect(() => { const handleClickOutside = (event) => { if (inputRef.current && !inputRef.current.contains(event.target) && suggestionsRef.current && !suggestionsRef.current.contains(event.target)) { setShowSuggestions(false); } }; document.addEventListener('mousedown', handleClickOutside); return () => document.removeEventListener('mousedown', handleClickOutside); }, []);
             const handleInputChange = (e) => { onChange(e.target.value); setShowSuggestions(true); }; const handleSelectSuggestion = (suggestion) => { onSelect(suggestion); setShowSuggestions(false); };
             const filteredSuggestions = useMemo(() => { if (!value) return suggestions; return suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase())); }, [value, suggestions]);
-            return ( <div ref={ref} className="relative w-full"> <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label> <input ref={inputRef} type="text" placeholder={placeholder} value={value} onChange={handleInputChange} onFocus={() => setShowSuggestions(true)} disabled={disabled} className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled ? 'border-green-600 bg-green-100 dark:bg-green-900/50 text-black dark:text-white cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'}`} /> {showSuggestions && filteredSuggestions.length > 0 && ( <ul ref={suggestionsRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-md shadow-lg max-h-48 overflow-y-auto"> {filteredSuggestions.map((suggestion, index) => ( <li key={index} onClick={() => handleSelectSuggestion(suggestion)} className="p-2 cursor-pointer hover:bg-blue-100 dark:hover:bg-zinc-700 text-black dark:text-white"> {suggestion} </li> ))} </ul> )} </div> );
+            // Use blue for disabled (correct) state to match indicator bar
+            return ( <div ref={ref} className="relative w-full"> <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label> <input ref={inputRef} type="text" placeholder={placeholder} value={value} onChange={handleInputChange} onFocus={() => setShowSuggestions(true)} disabled={disabled} className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled ? 'border-blue-600 bg-blue-100 dark:bg-blue-900/50 text-black dark:text-white cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'}`} /> {showSuggestions && filteredSuggestions.length > 0 && ( <ul ref={suggestionsRef} className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-md shadow-lg max-h-48 overflow-y-auto"> {filteredSuggestions.map((suggestion, index) => ( <li key={index} onClick={() => handleSelectSuggestion(suggestion)} className="p-2 cursor-pointer hover:bg-blue-100 dark:hover:bg-zinc-700 text-black dark:text-white"> {suggestion} </li> ))} </ul> )} </div> );
         });
 
-        // --- Year Input Component (Unchanged) ---
+        // --- Year Input Component (Updated for color consistency) ---
         const YearInput = forwardRef(({ label, value, minYear, maxYear, onChange, disabled = false }, ref) => {
-            return ( <div ref={ref} className="relative w-full"> <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label> <input type="number" placeholder="Year (e.g., 1985)" value={value} onChange={(e) => onChange(e.target.value)} min={minYear} max={maxYear} step="1" onFocus={() => { if (ref.current) { ref.current.querySelector('input').select(); } }} disabled={disabled} className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center ${disabled ? 'border-green-600 bg-green-100 dark:bg-green-900/50 text-black dark:text-white cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'}`} /> </div> );
+            // Use blue for disabled (correct) state to match indicator bar
+            return ( <div ref={ref} className="relative w-full"> <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label> <input type="number" placeholder="Year (e.g., 1985)" value={value} onChange={(e) => onChange(e.target.value)} min={minYear} max={maxYear} step="1" onFocus={() => { if (ref.current) { ref.current.querySelector('input').select(); } }} disabled={disabled} className={`input-field w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center ${disabled ? 'border-blue-600 bg-blue-100 dark:bg-blue-900/50 text-black dark:text-white cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white'}`} /> </div> );
         });
 
         // --- Fireworks Overlay Component (Unchanged) ---
@@ -238,7 +240,7 @@
         // --- Share Utility Function (Updated for Streak) ---
         const copyToClipboardFallback = (text) => { return new Promise((resolve, reject) => { const tA = document.createElement('textarea'); tA.value = text; tA.style.position = 'fixed'; tA.style.left = '-9999px'; document.body.appendChild(tA); tA.select(); try { const s = document.execCommand('copy'); document.body.removeChild(tA); if (s) { resolve(); } else { reject(new Error("execCommand failed")); } } catch (e) { document.body.removeChild(tA); reject(e); } }); };
         const shareResults = async (guesses, finalStatus, streak) => { // Added streak parameter
-            const totalGuesses = guesses.length; const emojiGrid = guesses.map(g => { const mE = g.correctness.make ? '🟢' : '🔴'; const mdE = g.correctness.model ? '🟢' : '🔴'; const yE = g.correctness.year ? '🟢' : '🔴'; return `${mE}${mdE}${yE}`; }).join('\n');
+            const totalGuesses = guesses.length; const emojiGrid = guesses.map(g => { const mE = g.correctness.make ? '🔵' : '🔴'; const mdE = g.correctness.model ? '🔵' : '🔴'; const yE = g.correctness.year ? '🔵' : '🔴'; return `${mE}${mdE}${yE}`; }).join('\n'); // Use blue circle for correct
             const resultText = finalStatus === 'won' ? `CARLE ${totalGuesses}/${MAX_GUESSES}` : `CARLE X/${MAX_GUESSES}`;
             const shareText = [resultText, `🔥 Streak ${streak}`, '', emojiGrid, '', 'Can you guess the car? [APP_LINK_PLACEHOLDER]'].join('\n'); // Include streak
             const shareData = { text: shareText, title: 'My CARLE Score' }; let fM = '';
@@ -250,16 +252,23 @@
         const GameEndModal = ({ targetCar, guesses, gameState, streak, onDismiss }) => { // Removed onPlayAgain, added streak
             const totalGuesses = guesses.length; const isWon = gameState === 'won'; const titleText = isWon ? 'WINNER!' : 'GAME OVER'; const pointsThisRound = isWon ? (MAX_GUESSES - totalGuesses + 1) * 10 : 0;
             const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const tomorrowKey = tomorrow.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); // Format for display
+            // Determine correctness for the final display circles
+            const finalCorrectness = guesses[guesses.length -1]?.correctness || {make: false, model: false, year: false};
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-70 backdrop-blur-sm animate-soft-fade-in">
                     <div className="bg-white dark:bg-zinc-800 text-black dark:text-white rounded-xl shadow-2xl w-full max-w-sm md:max-w-md p-6 relative">
                         {isWon && <FireworksOverlay />}
                         <button onClick={onDismiss} className="absolute top-4 right-4 z-50 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"> <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg> </button>
-                        <h2 className={`text-2xl font-extrabold text-center mb-1 z-20 ${isWon ? 'text-green-600' : 'text-red-600'}`}> {titleText} </h2>
+                        <h2 className={`text-2xl font-extrabold text-center mb-1 z-20 ${isWon ? 'text-blue-600' : 'text-red-600'}`}> {titleText} </h2> {/* Changed win title color to blue */}
                         <p className="text-sm text-center font-medium text-zinc-600 dark:text-zinc-400 mb-4 z-20"> The Car was: <span className="font-semibold">{targetCar.make} {targetCar.model} {targetCar.year}</span> </p>
                         <div className="w-full h-40 overflow-hidden rounded-lg shadow-lg mb-4 relative z-20"> <img src={targetCar.imageUrl} alt="Target Car" className={`absolute inset-0 w-full h-full object-cover ${ZOOM_LEVELS[MAX_GUESSES]}`} onError={(e) => e.target.src = "https://placehold.co/1200x800/607D8B/white?text=Image+Not+Found"} /> </div>
-                        <div className="flex justify-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-700 mb-4 z-20"> <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Make</p> </div> <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Model</p> </div> <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Year</p> </div> </div>
+                        {/* Use blue for correct circles */}
+                        <div className="flex justify-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-700 mb-4 z-20">
+                            <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${finalCorrectness.make ? 'bg-blue-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Make</p> </div>
+                            <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${finalCorrectness.model ? 'bg-blue-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Model</p> </div>
+                            <div className="text-center"> <span className={`inline-block h-4 w-4 rounded-full ${finalCorrectness.year ? 'bg-blue-500' : 'bg-red-500'}`} /> <p className="text-xs mt-1 font-semibold">Year</p> </div>
+                        </div>
                         <div className="flex justify-between text-sm font-medium mb-6 z-20"> <div> <p>Guesses:</p> <p>Score:</p> <p className="font-bold">🔥 Streak:</p> </div> <div className="text-right font-bold"> <p>{isWon ? `${totalGuesses}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`}</p> <p>{pointsThisRound}</p> <p>{streak}</p> </div> </div>
                         <div className="flex flex-col gap-3 z-20">
                             {/* Pass streak to shareResults */}
@@ -533,12 +542,12 @@
                         {(gameState === "won" || gameState === "lost") && !showModal && ( <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"> <button onClick={() => setShowModal(true)} className="text-white text-3xl font-bold drop-shadow-lg underline"> {gameState === "won" ? `WINNER! View Results` : `GAME OVER. View Results`} </button> </div> )}
                     </main>
 
-                    {/* --- Correctness Indicator Bar --- */}
+                    {/* --- Correctness Indicator Bar (Using Blue for Correct) --- */}
                     {gameState === 'playing' && guesses.length > 0 && (
                          <div className="flex w-full max-w-xs sm:max-w-sm md:max-w-md mx-auto mb-4 rounded-full overflow-hidden shadow">
-                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.makeCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Make</div>
-                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 border-x-2 border-white dark:border-zinc-500 ${currentGuess.modelCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Model</div>
-                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.yearCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Year</div>
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.makeCorrect ? 'bg-blue-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Make</div>
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 border-x-2 border-white dark:border-zinc-500 ${currentGuess.modelCorrect ? 'bg-blue-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Model</div>
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.yearCorrect ? 'bg-blue-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Year</div>
                          </div>
                     )}
 
@@ -558,7 +567,7 @@
 
                     <div className="flex justify-center mb-6 w-full max-w-2xl">
                          {/* Button text changes based on state */}
-                        {gameState === "playing" ? ( <button onClick={handleSubmitGuess} disabled={!currentGuess.make || !currentGuess.model} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-xl rounded-lg shadow-md"> Guess ({guesses.length + 1}/{MAX_GUESSES}) </button> ) : ( <button onClick={() => setShowModal(true)} className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold text-xl rounded-lg shadow-md"> View Today's Results </button> )}
+                        {gameState === "playing" ? ( <button onClick={handleSubmitGuess} disabled={!currentGuess.make || !currentGuess.model} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-xl rounded-lg shadow-md"> Guess ({guesses.length + 1}/{MAX_GUESSES}) </button> ) : ( <button onClick={() => setShowModal(true)} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl rounded-lg shadow-md"> View Today's Results </button> )} {/* Changed color for consistency */}
                     </div>
 
                     {guesses.length > 0 && (
@@ -566,8 +575,8 @@
                             <h3 className="text-xl font-semibold mb-3 text-center">Your Attempts</h3>
                             <div className="flex flex-col gap-3">
                                 {guesses.map((g, i) => (
-                                    <div key={i} className={`p-3 rounded-xl border-2 ${g.result === "correct" ? "border-green-600 bg-green-50/70 dark:bg-green-900/50" : "border-red-600 bg-red-50/70 dark:bg-red-900/50"} ${i === guesses.length - 1 ? 'animate-soft-fade-in' : ''}`}>
-                                        <div className="flex justify-center items-center font-bold mb-2"> {g.result === "correct" && ( <span className={`text-sm font-bold uppercase text-green-700 dark:text-green-400`}> FULL MATCH </span> )} </div>
+                                    <div key={i} className={`p-3 rounded-xl border-2 ${g.result === "correct" ? "border-blue-600 bg-blue-50/70 dark:bg-blue-900/50" : "border-red-600 bg-red-50/70 dark:bg-red-900/50"} ${i === guesses.length - 1 ? 'animate-soft-fade-in' : ''}`}> {/* Use blue border for correct history */}
+                                        <div className="flex justify-center items-center font-bold mb-2"> {g.result === "correct" && ( <span className={`text-sm font-bold uppercase text-blue-700 dark:text-blue-400`}> FULL MATCH </span> )} </div> {/* Use blue text for match */}
                                         <div className="flex flex-col sm:flex-row gap-2 text-center text-sm"> <GuessTile label="Make" value={g.guess.make} isCorrect={g.correctness.make} animationDelayClass="animate-tile-fade-in-1" /> <GuessTile label="Model" value={g.guess.model} isCorrect={g.correctness.model} animationDelayClass="animate-tile-fade-in-2" /> <GuessTile label="Year" value={g.guess.year} isCorrect={g.correctness.year} animationDelayClass="animate-tile-fade-in-3" /> </div>
                                     </div>
                                 ))}
@@ -589,3 +598,4 @@
     </script>
 </body>
 </html>
+
