@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CARLE: The Daily Car Guessing Game (UAT)</title>
-    <!-- Load Tailwind CSS from CDN  {/* Corrected comment format */} -->
+    <!-- Load Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load React, ReactDOM, and Babel  {/* Corrected comment format */} -->
+    <!-- Load React, ReactDOM, and Babel -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -154,7 +154,7 @@
             return cars[index];
         };
 
-        // --- UTILITY: Fetch and Parse CSV Data (Unchanged from previous version) ---
+        // --- UTILITY: Fetch and Parse CSV Data ---
          const fetchData = async () => {
             try {
                 const response = await fetch(CSV_URL);
@@ -162,7 +162,7 @@
                     throw new Error(`HTTP Error Status: ${response.status}`);
                 }
                 const csvText = await response.text();
-                
+
                 const lines = csvText.trim().split('\n');
                 if (lines.length <= 1) throw new Error("CSV is empty or header-only.");
 
@@ -304,7 +304,7 @@
                         const cars = await fetchData();
                         if (!cars || cars.length === 0) throw new Error("No valid car data loaded.");
                         setAllCars(cars);
-                        
+
                         // Determine the Daily Car using seed
                         const dailyCar = getDailyCar(cars, todayKey);
                         if (!dailyCar) throw new Error("Could not determine daily car.");
@@ -320,6 +320,7 @@
                             console.log("Resuming today's game...");
                             setGuesses(savedState.guesses);
                             setGameState(savedState.gameState);
+                            // Important: Restore currentGuess progress *including* correctness flags
                             setCurrentGuess(savedState.currentGuess);
                             setShowModal(savedState.gameState !== 'playing'); // Show modal if already finished
                             // Don't modify streak when resuming
@@ -340,7 +341,8 @@
                             localStorage.removeItem(DAILY_STATE_KEY);
                         }
                         setStreak(currentStreak); // Update streak state
-                        setGameState(savedState && savedState.dateKey === todayKey ? savedState.gameState : 'playing'); // Ensure correct game state
+                         // Ensure correct game state after loading/resetting
+                        setGameState(savedState && savedState.dateKey === todayKey ? savedState.gameState : 'playing');
 
                         // --- Initialize Dark Mode ---
                         const savedTheme = localStorage.getItem('theme');
@@ -367,7 +369,7 @@
                     dateKey: todayKey,
                     gameState,
                     guesses,
-                    currentGuess,
+                    currentGuess, // Save the current input state including correctness flags
                     targetCarId: targetCar.id // Optional: save ID for verification
                 };
                 localStorage.setItem(DAILY_STATE_KEY, JSON.stringify(stateToSave));
@@ -380,10 +382,10 @@
             useEffect(() => { const hF = (e) => { const eS = e.target.closest('.relative.w-full'); if (eS && window.innerWidth < 640) { setTimeout(() => { eS.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); } }; const ipts = [makeRef.current?.querySelector('input'), modelRef.current?.querySelector('input'), yearRef.current?.querySelector('input')].filter(Boolean); ipts.forEach(i => i.addEventListener('focus', hF)); return () => { ipts.forEach(i => i.removeEventListener('focus', hF)); }; }, [gameState]); // Re-attach if inputs reappear
 
             // --- Dark Mode Effect & Toggle Function ---
-             useEffect(() => { 
-                 if (darkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); } 
-                 else { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); } 
-                 document.body.classList.toggle('dark', darkMode); 
+             useEffect(() => {
+                 if (darkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+                 else { document.documentElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
+                 document.body.classList.toggle('dark', darkMode);
              }, [darkMode]);
              // Define toggleDarkMode function ONCE
              const toggleDarkMode = () => { setDarkMode(prevMode => !prevMode); };
@@ -432,14 +434,34 @@
                 const isCorrect = correctMake && correctModel && correctYear;
 
                 const guessWithFeedback = { guess: { ...currentGuess }, result: isCorrect ? "correct" : "incorrect", correctness: { make: correctMake, model: correctModel, year: correctYear }, imageUrl: targetCar.imageUrl, zoomLevel: currentZoomLevel };
-                
+
                 // Update guesses state (triggers save effect)
                 setGuesses((prev) => [...prev, guessWithFeedback]);
 
-                // Update current guess state for next turn (unchanged)
-                let nextGuessState = { ...currentGuess, makeCorrect: currentGuess.makeCorrect || correctMake, modelCorrect: currentGuess.modelCorrect || (correctMake && correctModel), yearCorrect: currentGuess.yearCorrect || correctYear };
-                if (nextGuessState.makeCorrect) { if (!nextGuessState.modelCorrect) nextGuessState.model = ""; } else { nextGuessState.make = ""; nextGuessState.model = ""; }
-                setCurrentGuess(nextGuessState);
+                // Update current guess state for next turn, incorporating new correctness
+                // This is crucial for the indicator bar and sticky fields
+                let nextGuessState = {
+                    ...currentGuess, // Start with current input values
+                    makeCorrect: currentGuess.makeCorrect || correctMake,
+                    modelCorrect: currentGuess.modelCorrect || (correctMake && correctModel), // Model only correct if Make is also correct
+                    yearCorrect: currentGuess.yearCorrect || correctYear
+                };
+
+                // Clear fields only if they were *incorrect* on this guess
+                if (nextGuessState.makeCorrect) {
+                     // If Make is now correct, but Model was incorrect this turn, clear Model input
+                    if (!correctModel && !nextGuessState.modelCorrect) {
+                         nextGuessState.model = "";
+                    }
+                     // Don't clear Make input if it's correct
+                } else {
+                     // If Make was incorrect this turn, clear both Make and Model inputs
+                    nextGuessState.make = "";
+                    nextGuessState.model = "";
+                }
+                // Don't clear Year, let user adjust
+
+                setCurrentGuess(nextGuessState); // Update the input fields state
 
                 // --- Game Over Logic with Streak Update ---
                 if (isCorrect) {
@@ -473,34 +495,35 @@
 
             // --- Normal Game Render ---
             return (
-                <div className="flex flex-col items-center w-full min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white p-4 sm:p-6">
+                <div className="flex flex-col items-center w-full min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white p-4 sm:p-6 relative"> {/* Add relative positioning here */}
                     {/* Modal uses streak state, passes dismiss handler, no play again handler */}
                     {showModal && (
                         <GameEndModal
                             targetCar={targetCar}
                             guesses={guesses}
                             gameState={gameState}
-                            streak={streak} 
+                            streak={streak}
                             onDismiss={() => setShowModal(false)}
                         />
                     )}
 
-                    <header className="w-full max-w-2xl text-center mb-4 relative">
+                     {/* Moved Dark Mode Toggle Button outside header */}
+                     <button onClick={toggleDarkMode} className="absolute top-4 right-4 z-10 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title={darkMode ? "Light Mode" : "Dark Mode"}>
+                         {darkMode ? (
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /> </svg>
+                         ) : (
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h1M3 12H2m15.325 5.232l-.707.707M6.707 6.707l-.707-.707m1.414 12.728l-.707.707M6.707 6.707l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /> </svg>
+                         )}
+                     </button>
+
+                    <header className="w-full max-w-2xl text-center mb-4 mt-8"> {/* Added mt-8 for spacing below button */}
                          {/* Responsive Title Size */}
                         <h1 className="text-3xl md:text-4xl font-bold tracking-wider">CARLE: The Daily Car Guessing Game</h1>
                         {/* Updated Subtitle Text */}
-                        <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base"> 
-                            Guess today's car within {MAX_GUESSES} tries. 
+                        <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base">
+                            Guess today's car within {MAX_GUESSES} tries.
                         </p>
                         <p className="text-lg font-semibold mt-1">🔥 Current Streak: {streak}</p>
-                        {/* Dark Mode Toggle Button */}
-                        <button onClick={toggleDarkMode} className="absolute top-0 right-0 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title={darkMode ? "Light Mode" : "Dark Mode"}> 
-                            {darkMode ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /> </svg> 
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h1M3 12H2m15.325 5.232l-.707.707M6.707 6.707l-.707-.707m1.414 12.728l-.707.707M6.707 6.707l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /> </svg>
-                            )} 
-                        </button>
                     </header>
 
                     {message && ( <div className="fixed top-16 z-50 px-6 py-3 rounded-lg bg-black text-white shadow-lg"> {message} </div> )}
@@ -510,6 +533,16 @@
                         {(gameState === "won" || gameState === "lost") && !showModal && ( <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"> <button onClick={() => setShowModal(true)} className="text-white text-3xl font-bold drop-shadow-lg underline"> {gameState === "won" ? `WINNER! View Results` : `GAME OVER. View Results`} </button> </div> )}
                     </main>
 
+                    {/* --- Correctness Indicator Bar --- */}
+                    {gameState === 'playing' && guesses.length > 0 && (
+                         <div className="flex w-full max-w-xs sm:max-w-sm md:max-w-md mx-auto mb-4 rounded-full overflow-hidden shadow">
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.makeCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Make</div>
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 border-x-2 border-white dark:border-zinc-500 ${currentGuess.modelCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Model</div>
+                             <div className={`flex-1 p-2 text-center text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentGuess.yearCorrect ? 'bg-green-600 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'}`}>Year</div>
+                         </div>
+                    )}
+
+
                     {/* Inputs only show if playing */}
                     {gameState === "playing" ? (
                         <div className="flex flex-col sm:flex-row gap-3 mb-4 w-full max-w-2xl">
@@ -518,7 +551,8 @@
                             <YearInput ref={yearRef} label="Year" minYear={MIN_YEAR} maxYear={MAX_YEAR} value={currentGuess.year} onChange={handleChangeYear} disabled={!currentGuess.make || !currentGuess.model || currentGuess.yearCorrect} />
                         </div>
                     ) : (
-                         <div className="h-12 mb-4 w-full max-w-2xl" /> // Placeholder to prevent layout shift
+                         // Adjust placeholder height if indicator bar is shown
+                         <div className={` ${guesses.length > 0 ? 'h-0' : 'h-12'} mb-4 w-full max-w-2xl`} />
                     )}
 
 
@@ -555,5 +589,3 @@
     </script>
 </body>
 </html>
-
-
