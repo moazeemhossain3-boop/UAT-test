@@ -20,6 +20,10 @@
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
+                    // Optional: Define the custom green color here if preferred
+                    // colors: {
+                    //   'custom-lime': '#88E788',
+                    // },
                 }
             }
         }
@@ -208,17 +212,25 @@
         };
 
 
-        // --- Guess Tile Component for History Display (Updated Color to Lime) ---
+        // --- Guess Tile Component for History Display (Updated Color to custom green) ---
         const GuessTile = ({ label, value, isCorrect, animationDelayClass }) => {
-            // Use lighter green (lime) for correct, red for incorrect
+            // Use red for incorrect, custom green #88E788 for correct
             let bgColor = "bg-red-500 dark:bg-red-600";
+            let textColor = "text-white"; // Default text color for red
+
             if (isCorrect) {
-                bgColor = "bg-lightgreen-500 dark:bg-lime-700"; // Changed green to lime
+                // Use custom hex #88E788 for both light and dark modes
+                bgColor = "bg-[#88E788]"; // Removed dark: prefix
+                // Use a dark text color for contrast against the light green
+                textColor = "text-lime-950"; // Dark text ensures readability
             }
+
             const correctIcon = ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 14.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> );
             const incorrectIcon = ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block ml-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg> );
             const isYearToleranceCorrect = label === 'YEAR' && isCorrect;
-            return ( <div className={`flex-1 p-2 rounded-lg ${bgColor} text-white font-semibold shadow-inner transition-colors duration-300 animate-tile-fade-in ${animationDelayClass}`}> <div className="text-xs opacity-80 uppercase tracking-widest flex items-center justify-center"> {label} {isCorrect ? correctIcon : incorrectIcon} </div> <div className="text-sm sm:text-base truncate"> {value} {isYearToleranceCorrect && (value !== (window.targetCar?.year?.toString())) && <span className="ml-1 text-xs font-normal italic">($\pm 2$ yrs)</span>} </div> </div> );
+
+            // Apply conditional text color
+            return ( <div className={`flex-1 p-2 rounded-lg ${bgColor} ${textColor} font-semibold shadow-inner transition-colors duration-300 animate-tile-fade-in ${animationDelayClass}`}> <div className="text-xs opacity-80 uppercase tracking-widest flex items-center justify-center"> {label} {isCorrect ? correctIcon : incorrectIcon} </div> <div className="text-sm sm:text-base truncate"> {value} {isYearToleranceCorrect && (value !== (window.targetCar?.year?.toString())) && <span className="ml-1 text-xs font-normal italic">($\pm 2$ yrs)</span>} </div> </div> );
         };
 
         // --- Autocomplete Input Component with Ref Forwarding (Unchanged) ---
