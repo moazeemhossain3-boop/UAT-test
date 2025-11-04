@@ -361,6 +361,12 @@
             );
         };
 
+        // --- NEW: Helper function to get initial theme ---
+        const getInitialTheme = () => {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return savedTheme === 'dark' || (!savedTheme && prefersDark);
+        };
 
         // --- Main Application Component ---
         function App() {
@@ -380,8 +386,8 @@
             const [message, setMessage] = useState("");
             const [showModal, setShowModal] = useState(false);
             const [currentGuess, setCurrentGuess] = useState({ make: "", model: "", year: DEFAULT_YEAR.toString(), makeCorrect: false, modelCorrect: false, yearCorrect: false });
-            // --- Dark Mode State ---
-            const [darkMode, setDarkMode] = useState(false); // Initial state set in useEffect
+            // --- Dark Mode State (FIXED) ---
+            const [darkMode, setDarkMode] = useState(getInitialTheme());
 
 
             // --- Effect to Load Data, Determine Daily Car, and Load/Reset State ---
@@ -432,10 +438,8 @@
                          // Ensure correct game state after loading/resetting
                         setGameState(savedState && savedState.dateKey === todayKey ? savedState.gameState : 'playing');
 
-                        // --- Initialize Dark Mode ---
-                        const savedTheme = localStorage.getItem('theme');
-                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        setDarkMode(savedTheme === 'dark' || (!savedTheme && prefersDark));
+                        // --- Initialize Dark Mode (REMOVED) ---
+                        // Logic is now in useState(getInitialTheme())
 
 
                     } catch (err) {
@@ -587,9 +591,9 @@
 
 
             // --- Conditional Rendering for Loading/Error States ---
-            if (isLoading) { return ( <div className="flex justify-center items-center w-full min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white"> <svg className="animate-spin h-8 w-8 text-indigo-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Loading Daily Car...</span> </div> ); }
-            if (gameState === 'error') { return ( <div className="flex flex-col justify-center items-center w-full min-h-screen bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-8 text-center"> <h1 className="text-2xl font-bold mb-4">Error Loading Game</h1> <p>{error}</p> <p className="mt-4 text-sm">Please check the console for details, ensure the CSV URL is correct and publicly accessible, and try refreshing.</p> </div> ); }
-            if (!targetCar) { return ( <div className="flex justify-center items-center w-full min-h-screen"> <p>Could not load the car for today.</p> </div> ); } // Safeguard
+            if (isLoading) { return ( <div className="flex justify-center items-center w-full min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white"> <svg className="animate-spin h-8 w-8 text-indigo-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Töltődik a napi autó...</span> </div> ); } // Changed loading text
+            if (gameState === 'error') { return ( <div className="flex flex-col justify-center items-center w-full min-h-screen bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-8 text-center"> <h1 className="text-2xl font-bold mb-4">Hiba a játék betöltése közben</h1> <p>{error}</p> <p className="mt-4 text-sm">Kérjük, ellenőrizze a konzolt a részletekért, győződjön meg róla, hogy a CSV URL helyes és nyilvánosan elérhető, majd próbálja meg frissíteni az oldalt.</p> </div> ); } // Changed error text
+            if (!targetCar) { return ( <div className="flex justify-center items-center w-full min-h-screen"> <p>Nem sikerült betölteni a mai autót.</p> </div> ); } // Safeguard, changed text
 
             // --- Normal Game Render ---
             return (
@@ -606,7 +610,7 @@
                     )}
 
                      {/* Moved Dark Mode Toggle Button outside header */}
-                     <button onClick={toggleDarkMode} className="absolute top-4 right-4 z-10 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title={darkMode ? "Light Mode" : "Dark Mode"}>
+                     <button onClick={toggleDarkMode} className="absolute top-4 right-4 z-10 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title={darkMode ? "Világos mód" : "Sötét mód"}> {/* Changed title text */}
                          {darkMode ? (
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /> </svg>
                          ) : (
@@ -619,16 +623,16 @@
                         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">Daily Driver</h1>
                         {/* Updated Subtitle Text */}
                         <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base mt-2">
-                            Guess today's car within {MAX_GUESSES} tries.
+                            Találd ki a mai autót {MAX_GUESSES} próbálkozásból.
                         </p>
-                        <p className="text-lg font-semibold mt-1">🔥 Current Streak: {streak}</p>
+                        <p className="text-lg font-semibold mt-1">🔥 Jelenlegi sorozat: {streak}</p>
                     </header>
 
                     {message && ( <div className="fixed top-16 z-50 px-6 py-3 rounded-lg bg-black text-white shadow-lg"> {message} </div> )}
 
                     <main className="relative w-full max-w-2xl h-64 sm:h-80 md:h-96 bg-zinc-200 dark:bg-zinc-800 rounded-lg shadow-xl overflow-hidden mb-6">
-                        <img src={targetCar.imageUrl} alt="Mystery Car" onError={(e) => { e.target.src = "https://placehold.co/1200x800/607D8B/white?text=IMG_ERROR"; }} className={`absolute inset-0 w-full h-full transition-transform duration-700 ease-out object-cover ${currentImageTransform}`} />
-                        {(gameState === "won" || gameState === "lost") && !showModal && ( <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"> <button onClick={() => setShowModal(true)} className="text-white text-3xl font-bold drop-shadow-lg underline"> {gameState === "won" ? `WINNER! View Results` : `GAME OVER. View Results`} </button> </div> )}
+                        <img src={targetCar.imageUrl} alt="Rejtélyes autó" onError={(e) => { e.target.src = "https://placehold.co/1200x800/607D8B/white?text=IMG_ERROR"; }} className={`absolute inset-0 w-full h-full transition-transform duration-700 ease-out object-cover ${currentImageTransform}`} /> {/* Changed alt text */}
+                        {(gameState === "won" || gameState === "lost") && !showModal && ( <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"> <button onClick={() => setShowModal(true)} className="text-white text-3xl font-bold drop-shadow-lg underline"> {gameState === "won" ? `GYŐZTÉL! Eredmények megtekintése` : `JÁTÉK VÉGE. Eredmények megtekintése`} </button> </div> )} {/* Changed text */}
                     </main>
 
                     {/* --- Correctness Indicator Bar (REMOVED) --- */}
@@ -637,9 +641,9 @@
                     {/* Inputs only show if playing */}
                     {gameState === "playing" ? (
                         <div className="flex flex-col sm:flex-row gap-3 mb-4 w-full max-w-2xl">
-                            <AutocompleteInput ref={makeRef} label="Make" placeholder="Make" value={currentGuess.make} onChange={(v) => setCurrentGuess(p => ({ ...p, make: v }))} onSelect={handleSelectMake} suggestions={availableMakes} disabled={currentGuess.makeCorrect} isCorrect={currentGuess.makeCorrect} />
-                            <AutocompleteInput ref={modelRef} label="Model" placeholder="Model" value={currentGuess.model} onChange={(v) => setCurrentGuess(p => ({ ...p, model: v }))} onSelect={handleSelectModel} suggestions={availableModels} disabled={!currentGuess.make || currentGuess.modelCorrect} isCorrect={currentGuess.modelCorrect} />
-                            <YearInput ref={yearRef} label="Year" minYear={MIN_YEAR} maxYear={MAX_YEAR} value={currentGuess.year} onChange={handleChangeYear} disabled={!currentGuess.make || !currentGuess.model || currentGuess.yearCorrect} isCorrect={currentGuess.yearCorrect} />
+                            <AutocompleteInput ref={makeRef} label="Márka" placeholder="Márka" value={currentGuess.make} onChange={(v) => setCurrentGuess(p => ({ ...p, make: v }))} onSelect={handleSelectMake} suggestions={availableMakes} disabled={currentGuess.makeCorrect} isCorrect={currentGuess.makeCorrect} /> {/* Changed text */}
+                            <AutocompleteInput ref={modelRef} label="Modell" placeholder="Modell" value={currentGuess.model} onChange={(v) => setCurrentGuess(p => ({ ...p, model: v }))} onSelect={handleSelectModel} suggestions={availableModels} disabled={!currentGuess.make || currentGuess.modelCorrect} isCorrect={currentGuess.modelCorrect} /> {/* Changed text */}
+                            <YearInput ref={yearRef} label="Évjárat" minYear={MIN_YEAR} maxYear={MAX_YEAR} value={currentGuess.year} onChange={handleChangeYear} disabled={!currentGuess.make || !currentGuess.model || currentGuess.yearCorrect} isCorrect={currentGuess.yearCorrect} /> {/* Changed text */}
                         </div>
                     ) : (
                          // Adjust placeholder height if indicator bar is shown
@@ -649,23 +653,23 @@
 
                     <div className="flex justify-center mb-6 w-full max-w-2xl">
                          {/* Button text changes based on state */}
-                        {gameState === "playing" ? ( <button onClick={handleSubmitGuess} disabled={!currentGuess.make || !currentGuess.model} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold text-xl rounded-lg shadow-md"> Guess ({guesses.length + 1}/{MAX_GUESSES}) </button> ) : ( <button onClick={() => setShowModal(true)} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xl rounded-lg shadow-md"> View Today's Results </button> )} {/* Changed color for consistency */}
+                        {gameState === "playing" ? ( <button onClick={handleSubmitGuess} disabled={!currentGuess.make || !currentGuess.model} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold text-xl rounded-lg shadow-md"> Tippelés ({guesses.length + 1}/{MAX_GUESSES}) </button> ) : ( <button onClick={() => setShowModal(true)} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xl rounded-lg shadow-md"> Mai eredmények megtekintése </button> )} {/* Changed color for consistency, changed text */}
                     </div>
 
                     {guesses.length > 0 && (
                         <div className="w-full max-w-2xl bg-zinc-200 dark:bg-zinc-800 p-4 rounded-lg shadow-inner">
-                            <h3 className="text-xl font-semibold mb-3 text-center">Your Attempts</h3>
+                            <h3 className="text-xl font-semibold mb-3 text-center">Tippjeid</h3>
                             <div className="flex flex-col gap-3">
                                 {guesses.map((g, i) => (
                                     <div key={i} className={`p-3 rounded-xl border-2 ${g.result === "correct" ? "border-indigo-600 bg-indigo-50/70 dark:bg-indigo-900/50" : "border-red-600 bg-red-50/70 dark:bg-red-900/50"} ${i === guesses.length - 1 ? 'animate-soft-fade-in' : ''}`}> {/* Use indigo border for correct history */}
-                                        <div className="flex justify-center items-center font-bold mb-2"> {g.result === "correct" && ( <span className={`text-sm font-bold uppercase text-indigo-700 dark:text-indigo-400`}> FULL MATCH </span> )} </div> {/* Use indigo text for match */}
-                                        <div className="flex flex-col sm:flex-row gap-2 text-center text-sm"> <GuessTile label="Make" value={g.guess.make} isCorrect={g.correctness.make} animationDelayClass="animate-tile-fade-in-1" /> <GuessTile label="Model" value={g.guess.model} isCorrect={g.correctness.model} animationDelayClass="animate-tile-fade-in-2" /> <GuessTile label="Year" value={g.guess.year} isCorrect={g.correctness.year} animationDelayClass="animate-tile-fade-in-3" /> </div>
+                                        <div className="flex justify-center items-center font-bold mb-2"> {g.result === "correct" && ( <span className={`text-sm font-bold uppercase text-indigo-700 dark:text-indigo-400`}> TELITALÁLAT </span> )} </div> {/* Use indigo text for match, changed text */}
+                                        <div className="flex flex-col sm:flex-row gap-2 text-center text-sm"> <GuessTile label="Márka" value={g.guess.make} isCorrect={g.correctness.make} animationDelayClass="animate-tile-fade-in-1" /> <GuessTile label="Modell" value={g.guess.model} isCorrect={g.correctness.model} animationDelayClass="animate-tile-fade-in-2" /> <GuessTile label="Évjárat" value={g.guess.year} isCorrect={g.correctness.year} animationDelayClass="animate-tile-fade-in-3" /> </div> {/* Changed text */}
                                     </div>
                                 ))}
                             </div>
                             {/* Add bottom margin to the instruction text */}
                             <p className="mt-4 mb-4 text-xs text-center text-zinc-500 dark:text-zinc-400">
-                                Guess within 2 years of the cars release date
+                                Az évjárat $\pm 2$ éven belül helyes.
                             </p>
                         </div>
                     )}
