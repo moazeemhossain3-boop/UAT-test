@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Driver: The Daily Car Guessing Game</title>
-    <!-- Load Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load React, ReactDOM, and Babel -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Configure Tailwind to support dark mode via class -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -126,14 +123,14 @@
         // --- UTILITY FUNCTIONS FOR DAILY LOGIC AND DATA ---
 
         /**
-         * Returns the date key for the user's current day (YYYY-MM-DD).
+         * Returns the date key for the current day in UTC (YYYY-MM-DD).
+         * This ensures all users get the same date key regardless of timezone.
          */
         const getTodayKey = () => {
             const date = new Date();
-            // Adjust for local timezone offset before getting ISO string
-            const offset = date.getTimezoneOffset() * 60000; // Offset in milliseconds
-            const localDate = new Date(date.getTime() - offset);
-            return localDate.toISOString().split('T')[0];
+            // .toISOString() is *always* in UTC.
+            // We just need to grab the date part (YYYY-MM-DD).
+            return date.toISOString().split('T')[0];
         };
 
         /**
@@ -513,6 +510,16 @@
             const handleChangeYear = useCallback((year) => { if (currentGuess.yearCorrect) return; setCurrentGuess(prev => ({ ...prev, year })); }, [currentGuess.yearCorrect]);
 
             const handleSubmitGuess = useCallback(() => {
+                // *** NEW: Check for day rollover ***
+                const currentDayKey = getTodayKey();
+                if (currentDayKey !== todayKey) {
+                    // Day has rolled over since the page loaded.
+                    // Force a refresh to load the new day's car.
+                    window.location.reload();
+                    return; // Stop execution
+                }
+                // *** End new check ***
+
                 if (gameState !== "playing" || !targetCar) return;
 
                 // Input validation (unchanged)
@@ -673,4 +680,3 @@
     </script>
 </body>
 </html>
-
