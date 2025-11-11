@@ -285,12 +285,14 @@
         });
 
         // --- Year Input Component (With Checkmark) ---
-        const YearInput = forwardRef(({ label, value, minYear, maxYear, onChange, disabled = false, isCorrect = false }, ref) => {
+       const YearInput = forwardRef(({ label, value, minYear, maxYear, onChange, disabled = false, isCorrect = false }, ref) => {
             return ( 
                 <div ref={ref} className="relative w-full"> 
                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 sr-only">{label}</label> 
                     <input 
                         type="number" 
+                        inputmode="numeric"  /* <--- ADDED */
+                        pattern="[0-9]*"     /* <--- ADDED */
                         placeholder="Year (e.g., 1985)" 
                         value={value} 
                         onChange={(e) => onChange(e.target.value)} 
@@ -311,7 +313,6 @@
                 </div> 
             );
         });
-
         // --- Fireworks Overlay Component (Unchanged) ---
         const COLORS = ['#FF5733', '#FFBD33', '#33FF57', '#3357FF', '#FF33A1', '#FF3333', '#FFD700', '#ADFF2F']; const NUM_PARTICLES = 20;
         const FireworksOverlay = () => { const bursts = useMemo(() => { const bP = [{ k: 'tl', xO: '0%', yO: '0%', d: 0 }, { k: 'tr', xO: '100%', yO: '0%', d: 0.1 }, { k: 'bl', xO: '0%', yO: '100%', d: 0.15 }, { k: 'br', xO: '100%', yO: '100%', d: 0.2 }]; return bP.map(b => Array.from({ length: NUM_PARTICLES }).map((_, i) => { const x = (Math.random() - 0.5) * 200; const y = (Math.random() - 0.5) * 200; const r = Math.random() * 360; const c = COLORS[Math.floor(Math.random() * COLORS.length)]; const dur = 0.5 + Math.random() * 0.3; return ( <div key={`${b.k}-${i}`} className="firework-particle" style={{ backgroundColor: c, '--x': `${x}px`, '--y': `${y}px`, '--r': `${r}deg`, animationDelay: `${b.d + Math.random() * 0.2}s`, animationDuration: `${dur}s`, left: b.xO, top: b.yO, transform: 'translate(-50%, -50%)' }} /> ); })); }, []); return ( <div className="absolute inset-0 pointer-events-none overflow-hidden z-30"> {bursts.map((burst, i) => ( <React.Fragment key={i}> {burst} </React.Fragment> ))} </div> ); };
@@ -690,3 +691,4 @@
     </script>
 </body>
 </html>
+
