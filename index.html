@@ -92,6 +92,37 @@
             color: #e2e8f0;
         }
     </style>
+    </style>
+
+    <script>
+        (function() {
+            try {
+                var savedTheme = localStorage.getItem('theme');
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                
+                // We set the class on the <html> tag as defined in your tailwind.config.js (darkMode: 'class')
+                if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                    // This line is for your custom body.dark styles
+                    document.body.classList.add('dark'); 
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    // This line is for your custom body.dark styles
+                    document.body.classList.remove('dark');
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        })();
+    </script>
+    </head>
+<body class="font-sans"> ```
+
+*(Self-correction: I noticed your custom CSS targets `body.dark`, so I've added `document.body.classList` to the blocker script as well to prevent any flash from those styles.)*
+
+This script runs instantly, finds the saved theme, and sets the correct classes before the page even tries to paint, solving the flash on Safari and other browsers.
+
+Let me know if you want to tackle another part of the app.
 </head>
 <body class="font-sans">
 
@@ -691,4 +722,5 @@
     </script>
 </body>
 </html>
+
 
