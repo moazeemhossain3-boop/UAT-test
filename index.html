@@ -347,7 +347,7 @@
         const shareResults = async (guesses, finalStatus, streak) => { // Added streak parameter
             const totalGuesses = guesses.length; const emojiGrid = guesses.map(g => { const mE = g.correctness.make ? '🔵' : '🔴'; const mdE = g.correctness.model ? '🔵' : '🔴'; const yE = g.correctness.year ? '🔵' : '🔴'; return `${mE}${mdE}${yE}`; }).join('\n'); // Use blue circle for correct
             const resultText = finalStatus === 'won' ? `Daily Driver ${totalGuesses}/${MAX_GUESSES}` : `Daily Driver X/${MAX_GUESSES}`;
-            const shareText = [resultText, `🔥 Streak ${streak}`, '', emojiGrid, '', 'Can you guess the car? [APP_LINK_PLACEHOLDER]'].join('\n'); // Include streak
+            const shareText = [resultText, `🔥 Streak ${streak}`, '', emojiGrid, '', 'Can you guess the car? [https://dailydriverme.netlify.app/]'].join('\n'); // Include streak
             const shareData = { text: shareText, title: 'My Daily Driver Score' }; let fM = '';
             if (navigator.share) { try { await navigator.share(shareData); fM = 'Shared!'; } catch (e) { if (e.name !== 'AbortError') { fM = 'Share failed. Copied.'; } else { fM = 'Copied!'; } try { await copyToClipboardFallback(shareText); } catch (cE) { fM = 'Copy failed.'; } } } else { try { await copyToClipboardFallback(shareText); fM = 'Copied!'; } catch (cE) { fM = 'Copy failed.'; } }
             const fE = document.getElementById('shareFeedback'); if (fE) { fE.textContent = fM; fE.classList.remove('opacity-0'); setTimeout(() => { fE.classList.add('opacity-0'); }, 3000); }
@@ -716,6 +716,7 @@
     </script>
 </body>
 </html>
+
 
 
 
